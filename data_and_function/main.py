@@ -36,6 +36,6 @@ if __name__ == "__main__":
     displayData(data=data)
 
     #save data for posterity
-    with open("Data and Real Function/testScores.pkl", "wb") as file:
+    with open("data_and_function/testScores.pkl", "wb") as file:
         pickler = pickle.Pickler(file=file, protocol=pickle.HIGHEST_PROTOCOL)
         pickler.dump(data)

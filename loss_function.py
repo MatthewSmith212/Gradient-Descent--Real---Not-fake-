@@ -20,12 +20,12 @@ def individualLoss(polyn : Polynomial, point: np.ndarray, domain: np.ndarray):
 
     roots = distSquareDiff.roots()
     real_mask = np.abs(roots.imag) < 1e-6
-    roots = roots[real_mask].real
+    realRoots = roots[real_mask].real
 
-    minDist = distSquare(roots[0])
+    minDist = distSquare(realRoots[0])
     
-    for i in range(1, len(roots)):
-        minDist = min(minDist, distSquare(roots[i]))
+    for i in range(1, len(realRoots)):
+        minDist = min(minDist, distSquare(realRoots[i]))
 
     if -1e-5 < minDist < 0:
         minDist = 0

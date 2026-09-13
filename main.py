@@ -21,6 +21,7 @@ if __name__ == "__main__":
 
     domain = np.array([min(data[:, 0]), max(data[:, 0])], dtype=np.float64)
 
+    displayData(data)
     print(lossFunction(fx, data, domain))
     """
     print("initial loss: " + str(lossFunction(fx, data)))

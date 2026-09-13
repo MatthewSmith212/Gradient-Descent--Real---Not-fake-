@@ -8,11 +8,9 @@ def baseFunction(hours_spent : float) -> float:
 
     terms = list()
     #terms are coefficient, exponenet (variable is hours_spent)
-    terms.append((60, 0))
-    terms.append((17.481350, 1))
-    terms.append((-3.378873, 2))
-    terms.append((0.226777, 3))
-    terms.append((-0.004827, 4))
+    terms.append((10, 0))
+    terms.append((0, 1))
+    terms.append((2, 2))
 
     result = float()
     for term in terms:

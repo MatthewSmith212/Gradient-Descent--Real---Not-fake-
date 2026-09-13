@@ -1,5 +1,5 @@
 from true_function import baseFunction
-from data_and_function.retrieve_data import displayData, displayDistribution
+from retrieve_data import displayData, displayDistribution
 import pickle
 import numpy as np
 from numpy import random
@@ -29,10 +29,10 @@ def efficientlyApplyFunction(data, noise):
     return data
 
 if __name__ == "__main__":
-    inputs = generate_inputs(10000)
+    inputs = generate_inputs(100)
     displayDistribution(inputs)
 
-    data = efficientlyApplyFunction(inputs, 10)
+    data = efficientlyApplyFunction(inputs, 5)
     displayData(data=data)
 
     #save data for posterity

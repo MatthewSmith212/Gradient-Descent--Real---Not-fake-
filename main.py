@@ -17,7 +17,7 @@ def descendGradient(lossFunc: function, params: np.ndarray, data: np.ndarray, do
 if __name__ == "__main__":
     #showSavedData("data_and_function/testScores.pkl")
     data = np.array(readData("data_and_function/testScores.pkl"), dtype=np.float64)
-    fx = np.array([5, -5, 4], dtype=np.float64) #fx[i] is the coefficient to the term x^i
+    fx = np.array([20, -15, 4, -0.5, 0.5], dtype=np.float64) #fx[i] is the coefficient to the term x^i
 
     domain = np.array([min(data[:, 0]), max(data[:, 0])], dtype=np.float64)
 
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     
     diffPrecision = 8
     passes = 500
-    learningRate = 0.05
+    learningRate = 0.01
 
     differential = np.float64(1) ** (-diffPrecision)
     
@@ -34,7 +34,7 @@ if __name__ == "__main__":
     print(fx)
     print("intermediate loss: " + str(lossFunction(fx, data, domain)))
 
-    learningRate = 0.01
+    learningRate = 0.005
     fx = descendGradient(lossFunc=lossFunction, params=fx, data=data, domain=domain, h=differential, passes=passes, learningRate=learningRate) #do 500 more passes at a low learning rate
     print(fx)
     print("final loss: " + str(lossFunction(fx, data, domain)))

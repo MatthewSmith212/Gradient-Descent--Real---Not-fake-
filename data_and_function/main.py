@@ -32,7 +32,7 @@ if __name__ == "__main__":
     inputs = generate_inputs(100)
     displayDistribution(inputs)
 
-    data = efficientlyApplyFunction(inputs, 5)
+    data = efficientlyApplyFunction(inputs, 0)
     displayData(data=data)
 
     #save data for posterity

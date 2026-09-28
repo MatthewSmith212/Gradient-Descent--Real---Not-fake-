@@ -4,7 +4,9 @@ from calc_gradients import calcGradients
 import numpy as np
 
 """
-Based on cheating, using the actual function, the minimum achievable loss is ~0
+Based on cheating, using the actual function, the minimum achievable loss is ~0.
+Just use a dumber activation function so that the gradient can be computed symbolically.
+Cause like, it's screwy to take the derivative of a minimum.
 """
 
 def descendGradient(lossFunc: function, params: np.ndarray, data: np.ndarray, domain: np.ndarray, h: np.float64, passes: int, learningRate: float, momentum:float):

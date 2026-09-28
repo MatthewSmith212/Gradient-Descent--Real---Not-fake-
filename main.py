@@ -7,6 +7,7 @@ import numpy as np
 Based on cheating, using the actual function, the minimum achievable loss is ~0.
 Just use a dumber activation function so that the gradient can be computed symbolically.
 Cause like, it's screwy to take the derivative of a minimum.
+Valuable: https://www.ccs.neu.edu/home/alina/classes/Fall2018/Lecture5.pdf
 """
 
 def descendGradient(lossFunc: function, params: np.ndarray, data: np.ndarray, domain: np.ndarray, h: np.float64, passes: int, learningRate: float, momentum:float):

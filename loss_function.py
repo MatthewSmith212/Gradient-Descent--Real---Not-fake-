@@ -4,12 +4,12 @@ import math
 
 def individualLoss(polyn : Polynomial, point: np.ndarray, domain: np.ndarray):
     """
-    MinArg, the really hard thing to find, is the value of x which gives the point on the function closest to the point we're checking.
-    Then the loss is simply the distance from (minArg, f(minArg)) to the point
+    The most accurate way of calculating the error for a data point would be 
+    to construct the distance function between the point and the function, then find its minimum.  
+    Unfortunately, this is not differentiable so we calculate our error as
+    f(xi) - yi and then square it, yada yada, mean squared error.
 
-    ~~Basic flow: create distance function -> find zeroes of distance function -> find global minimum~~
-
-    THE DOMAIN IS LIMITED, JUST USE A BINARY SEARCH. Wait NVM
+    But really, we want the derivative of this. So I gotta do some math.
     """
 
     x1, y1 = point[0], point[1]

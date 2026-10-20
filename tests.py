@@ -1,10 +1,10 @@
 #I should learn how to actually use pytest
-from functions import constructSinusoidalDeriv
+from functions import constructSinusoidalDerivBuilders
 import numpy as np
 
 if __name__ == "__main__":
     sinusoidalCoeffs = np.array([[5, 3, 2, 1]])
-    partials = constructSinusoidalDeriv(sinusoidalCoeffs)
+    partials = constructSinusoidalDerivBuilders(sinusoidalCoeffs)
     print(partials)
     print(sinusoidalCoeffs[0][0])
     for i in range(4):

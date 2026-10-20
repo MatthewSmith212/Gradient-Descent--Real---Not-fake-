@@ -14,7 +14,7 @@ def applyPolynomialFunction(coeffs: np.ndarray, x: np.float64):
         result += coeffs[i] * (x ** i)
     return result
 
-def constructPolynomialDeriv(coeffs: np.ndarray) -> np.ndarray:
+def constructPolynomialDerivBuilders(coeffs: np.ndarray) -> np.ndarray:
     """
     Partial derivative of sum over k of wkx^k
     with respect to wi
@@ -25,13 +25,17 @@ def constructPolynomialDeriv(coeffs: np.ndarray) -> np.ndarray:
     When wi changes.
     Because it's just x^i.
     """
-    derivs = np.ndarray(shape=len(coeffs), dtype=object)
+    derivBuilders = np.empty(shape=len(coeffs), dtype=object)
     for i in range(len(coeffs)):
-        def deriv(x: np.float64) -> np.float64:
-            return x ** i
-        derivs[i] = deriv
-        del deriv
-    return derivs
+        def derivBuilder() -> Callable[[np.float64], np.float64]:
+            #just necessary for formatting consistency
+            def deriv(x: np.float64) -> np.float64:
+                return x ** i
+            #Finally, vector functions
+            return np.vectorize(deriv)
+        derivBuilders[i] = derivBuilder
+        del derivBuilder
+    return derivBuilders
 
 def applySinusoidalFunction(coeffs: np.ndarray, x: np.float64):
     """
@@ -45,7 +49,7 @@ def applySinusoidalFunction(coeffs: np.ndarray, x: np.float64):
         result += a * np.sin(b * (x - c)) + d
     return result
 
-def constructSinusoidalDeriv(coeffs: np.ndarray) -> np.ndarray:
+def constructSinusoidalDerivBuilders(coeffs: np.ndarray) -> np.ndarray:
     """
     2D array but each parameter is a weight.
     So we need a partial gradient for each.
@@ -56,37 +60,53 @@ def constructSinusoidalDeriv(coeffs: np.ndarray) -> np.ndarray:
     are the derivatives with respect to each parameter in coeffs[i].
     This does need to be recalculated every time
     """
-    derivs = np.empty(shape=(len(coeffs), 4), dtype=object)
+    derivBuilders = np.empty(shape=(len(coeffs), 4), dtype=object)
     for i in range(len(coeffs)):
         #iterate over all the sinusoidal terms, and make a list of partial derivatives with respect to each parameter of each term
        
-        def deriv(x : np.float64, termCoeffs : np.ndarray) ->  np.float64: # type: ignore
+        def derivBuilder(termCoeffs : np.ndarray) ->  Callable[[np.float64], np.float64]: # pyright: ignore[reportRedeclaration]
             #partial derivative with respect to a is just f(x)/a
+            #vector functions cant read out of arrays so lets define the function with them. They only change once per pass, so less depends on the efficiency with which we access these.
             a, b, c, d = termCoeffs[0], termCoeffs[1], termCoeffs[2], termCoeffs[3]
-            return np.sin(b * (x - c))
-        derivs[i][0] = deriv
-        del deriv
+            def deriv(x: np.float64):
+                return np.sin(b * (x - c))
+            #Return a fast vector function
+            return np.vectorize(deriv)
+        derivBuilders[i][0] = derivBuilder
+        del derivBuilder
 
-        def deriv(x: np.float64, termCoeffs: np.ndarray) -> np.float64: # pyright: ignore[reportRedeclaration]
-            #Partial derivative with respect to b
+        def derivBuilder(termCoeffs: np.ndarray) -> Callable[[np.float64], np.float64]: # pyright: ignore[reportRedeclaration]
+            #vector functions cant read out of arrays so lets define the function with them. They only change once per pass, so less depends on the efficiency with which we access these.
             a, b, c, d = termCoeffs[0], termCoeffs[1], termCoeffs[2], termCoeffs[3]
-            return a * (np.cos(b * (x-c)) * (x-c))
-        derivs[i][1] = deriv
-        del deriv
+            def deriv(x: np.float64):
+                #partial derivative with respect to b
+                return a * (np.cos(b * (x-c)) * (x-c))
+            #Return a fast vector function
+            return np.vectorize(deriv)
+        derivBuilders[i][1] = derivBuilder
+        del derivBuilder
 
-        def deriv(x: np.float64, termCoeffs: np.ndarray): # pyright: ignore[reportRedeclaration]
-            #Partial derivative with respect to c (most difficult)
+        def derivBuilder(termCoeffs: np.ndarray) -> Callable[[np.float64], np.float64]: # pyright: ignore[reportRedeclaration]
+            #vector functions cant read out of arrays so lets define the function with them. They only change once per pass, so less depends on the efficiency with which we access these.
             a, b, c, d = termCoeffs[0], termCoeffs[1], termCoeffs[2], termCoeffs[3]
-            return a * (np.cos(b * (x-c)) * (-b))
-        derivs[i][2] = deriv
-        del deriv
+            def deriv(x: np.float64):
+                #Partial derivative with respect to c (most difficult)
+                return a * (np.cos(b * (x-c)) * (-b))
+            #Return a fast vector function
+            return np.vectorize(deriv)
+        derivBuilders[i][2] = derivBuilder
+        del derivBuilder
 
-        def deriv(x: np.float64, termCoeffs: np.ndarray) -> np.float64:
-            return np.float64(1)
-        derivs[i][3] = deriv
-        del deriv
+        def derivBuilder(termCoeffs: np.ndarray) -> Callable[[np.float64], np.float64]:
+            #Really just for consistency of formatting
+            def deriv(x: np.float64):
+                #partial derivative with respect to d is just 1
+                return np.float64(1)
+            return np.vectorize(deriv)
+        derivBuilders[i][3] = derivBuilder
+        del derivBuilder
         
-    return derivs
+    return derivBuilders
 
 
 

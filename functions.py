@@ -14,7 +14,7 @@ def applyPolynomialFunction(coeffs: np.ndarray, x: np.float64):
         result += coeffs[i] * (x ** i)
     return result
 
-def constructPolynomialDeriv(coeffs: np.ndarray) -> list[NUMERICAL_DERIVATIVE_SHAPE]:
+def constructPolynomialDeriv(coeffs: np.ndarray) -> np.ndarray:
     """
     Partial derivative of sum over k of wkx^k
     with respect to wi
@@ -25,11 +25,12 @@ def constructPolynomialDeriv(coeffs: np.ndarray) -> list[NUMERICAL_DERIVATIVE_SH
     When wi changes.
     Because it's just x^i.
     """
-    derivs = list()
+    derivs = np.ndarray(shape=len(coeffs), dtype=object)
     for i in range(len(coeffs)):
         def deriv(x: np.float64) -> np.float64:
             return x ** i
-        derivs.append(np.vectorize(deriv))
+        derivs[i] = deriv
+        del deriv
     return derivs
 
 def applySinusoidalFunction(coeffs: np.ndarray, x: np.float64):
@@ -44,22 +45,49 @@ def applySinusoidalFunction(coeffs: np.ndarray, x: np.float64):
         result += a * np.sin(b * (x - c)) + d
     return result
 
-def constructSinusoidalDeriv(coeffs: np.ndarray) -> list[NUMERICAL_DERIVATIVE_SHAPE]:
+def constructSinusoidalDeriv(coeffs: np.ndarray) -> np.ndarray:
     """
     2D array but each parameter is a weight.
     So we need a partial gradient for each.
     Since each parameter will have a different partial derivative, we'll iterate over a row for each call of this constructor function
     To keep the mathematical working in the math functions.
-    Return is a 1d list of the partial derivatives with respect to each parameter
+    Return is a 2d list of the partial derivatives in each term
     where derivs[4k], derivs[4k + 1], derivs[4k + 2], derivs[4k + 3]
     are the derivatives with respect to each parameter in coeffs[i].
     This does need to be recalculated every time
     """
-    derivs = list()
+    derivs = np.empty(shape=(len(coeffs), 4), dtype=object)
     for i in range(len(coeffs)):
-        #iterate over all the sinusoidal terms
-        for j in range(len(coeffs[0])):
-            def deriv()
+        #iterate over all the sinusoidal terms, and make a list of partial derivatives with respect to each parameter of each term
+       
+        def deriv(x : np.float64, termCoeffs : np.ndarray) ->  np.float64: # type: ignore
+            #partial derivative with respect to a is just f(x)/a
+            a, b, c, d = termCoeffs[0], termCoeffs[1], termCoeffs[2], termCoeffs[3]
+            return np.sin(b * (x - c))
+        derivs[i][0] = deriv
+        del deriv
+
+        def deriv(x: np.float64, termCoeffs: np.ndarray) -> np.float64: # pyright: ignore[reportRedeclaration]
+            #Partial derivative with respect to b
+            a, b, c, d = termCoeffs[0], termCoeffs[1], termCoeffs[2], termCoeffs[3]
+            return a * (np.cos(b * (x-c)) * (x-c))
+        derivs[i][1] = deriv
+        del deriv
+
+        def deriv(x: np.float64, termCoeffs: np.ndarray): # pyright: ignore[reportRedeclaration]
+            #Partial derivative with respect to c (most difficult)
+            a, b, c, d = termCoeffs[0], termCoeffs[1], termCoeffs[2], termCoeffs[3]
+            return a * (np.cos(b * (x-c)) * (-b))
+        derivs[i][2] = deriv
+        del deriv
+
+        def deriv(x: np.float64, termCoeffs: np.ndarray) -> np.float64:
+            return np.float64(1)
+        derivs[i][3] = deriv
+        del deriv
+        
+    return derivs
+
 
 
 def applyExponentialFunction(coeffs: np.ndarray, x: np.float64):
@@ -71,5 +99,5 @@ def applyExponentialFunction(coeffs: np.ndarray, x: np.float64):
     result = np.float64(0.0)
     for coeff in coeffs:
         a, b, c, d = coeff[0], coeff[1], coeff[2], coeff[3]
-        results += a * np.e ** (b(x-c)) + d
+        result += a * np.e ** (b(x-c)) + d
     return result

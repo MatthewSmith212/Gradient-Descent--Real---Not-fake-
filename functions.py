@@ -55,6 +55,15 @@ def constructDeriv(termCoeffs: np.ndarray, term:int, type: str) -> NUMERICAL_DER
     return lambda x: partial(x, *termCoeffs)
 
 def applyFunction(coeffs: np.ndarray, type: str, x: np.ndarray) -> np.ndarray:
+    """
+    Apply a function (described by its coefficients) to an array of values x.
+    This broadcasts across the x-values but still iterates through the coefficients
+    using a slow python for-loop.
+
+    For consistency, polynomial functions need to have indices as parameters.
+    I will, however, freeze these because the optimization is more sensible
+    if only the coefficients move.
+    """
     termFunc = FUNC_TUPLES[type]
     result = np.zeros_like(x)
     for coeff in coeffs:

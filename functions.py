@@ -12,32 +12,37 @@ Symbolic derivatives never change, just the coefficients
 so store the symbolics for quick access
 """
 
-DERIVTUPLES = dict()
+DERIV_TUPLES = dict()
+FUNC_TUPLES = dict()
 
-DERIVTUPLES["Polynomial"] = (
+DERIV_TUPLES["Polynomial"] = (
     lambda x, i:x**i
 )
 
-DERIVTUPLES["Sinusoidal"] = (
+DERIV_TUPLES["Sinusoidal"] = (
     lambda x, a, b, c, d: np.sin(b * (x - c)), #partial derivative with respect to a is just f(x)/a
     lambda x, a, b, c, d: a * (np.cos(b * (x-c)) * (x-c)), #d/db
     lambda x, a, b, c, d: a * (np.cos(b * (x-c)) * (-b)), #d/dc
     lambda x, a, b, c, d: np.ones_like(x, dtype=np.float64) #d/dd
 )
 
-DERIVTUPLES["Exponential"] = (
+DERIV_TUPLES["Exponential"] = (
     lambda x, a, b, c: np.exp(b*x),
     lambda x, a, b, c: a * (np.exp(b * x) * x),
     lambda x, a, b, c: np.ones_like(x, dtype=np.float64),
 )
 
-DERIVTUPLES["Logarithmic"] = (
+DERIV_TUPLES["Logarithmic"] = (
     lambda x, a, b, c: np.log(x-b),
     lambda x, a, b, c: a * (np.log(x-b) * -1),
     lambda x, a, b, c: np.ones_like(x, dtype=np.float64),
 )
 
-def constructDeriv(termCoeffs: np.ndarray, term:int, type:str) -> NUMERICAL_DERIVATIVE_SHAPE:
+FUNC_TUPLES["Polynomial"] = (
+    lambda x, a, i: a * (x ** i)
+)
+
+def constructDeriv(termCoeffs: np.ndarray, term:int, type: str) -> NUMERICAL_DERIVATIVE_SHAPE:
     """
     Need the partial derivative with respect to each parameter but, 
     in a given term, the gradient depends on the other weights
@@ -46,8 +51,19 @@ def constructDeriv(termCoeffs: np.ndarray, term:int, type:str) -> NUMERICAL_DERI
     Returns a function which will calculate the partial derivative with respect to a parameter at an x-value
     """
     
-    partial = DERIVTUPLES[type]
+    partial = DERIV_TUPLES[type][term]
     return lambda x: partial(x, *termCoeffs)
+
+def applyFunction(coeffs: np.ndarray, type: str, x: np.ndarray) -> np.ndarray:
+    termFunc = FUNC_TUPLES[type]
+    result = np.zeros_like(x)
+    for coeff in coeffs:
+        #not as fast as it could be, because the for loop runs in python
+        #However, each term gets broacast over the array (I think).
+        result += termFunc(x, *coeff)
+    return result
+
+#region functions
 
 def applyPolynomialFunction(coeffs: np.ndarray, x: np.ndarray):
     #Polynomial functions are stored as nparrays with coeff[i] being the coefficient of x^i
@@ -55,6 +71,53 @@ def applyPolynomialFunction(coeffs: np.ndarray, x: np.ndarray):
     for i in range(len(coeffs)):
         result += coeffs[i] * (x ** i)
     return result
+
+
+def applySinusoidalFunction(coeffs: np.ndarray, x: np.float64):
+    """
+    Sinusoidal functions are stored as 2d np arrays 
+    with each term containing 4 floats: [a, b, c, d]
+    representing asin(b(x-c)) + d
+    """
+    result = np.float64(0.0)
+    for coeff in coeffs:
+        a, b, c, d = coeff[0], coeff[1], coeff[2], coeff[3]
+        result += a * np.sin(b * (x - c)) + d
+    return result
+
+
+def applyExponentialFunction(coeffs: np.ndarray, x: np.float64) -> np.float64:
+    """
+    Exponential functions are stored as 2d np array
+    with each term containing 3 floats: [a, b, c]
+    representing ae^(bx)+c.
+    Really, there should just be one constant term but it would be more work to represent.
+
+    I originally had a horizantal shift factor but it can be represented in the vertical stretch
+    """
+    result = np.float64(0.0)
+    for coeff in coeffs:
+        a, b, c = coeff[0], coeff[1], coeff[2]
+        result += a * np.exp(b*x) + c
+    return result
+
+
+
+def applyLogarithmicFunction(coeffs: np.ndarray, x: np.float64) -> np.float64:
+    """
+    Exponential functions are stored as 2d np array
+    with each term containing 3 floats: [a, b, c]
+    representing aln(x-b)+c.
+    Really, there should just be one constant term but it would be more work to represent.
+    """
+    result = np.float64(0.0)
+    for coeff in coeffs:
+        a, b, c = coeff[0], coeff[1], coeff[2]
+        result += a * np.log(x-b) + c
+    return result
+
+
+#region deprecated
 
 def constructPolynomialDerivBuilders(coeffs: np.ndarray) -> np.ndarray:
     """
@@ -74,23 +137,10 @@ def constructPolynomialDerivBuilders(coeffs: np.ndarray) -> np.ndarray:
             def deriv(x: np.float64) -> np.float64:
                 return x ** i
             #Finally, vector functions
-            return np.vectorize(DERIVTUPLES["Polynomial"][0])
+            return np.vectorize(DERIV_TUPLES["Polynomial"][0])
         derivBuilders[i] = derivBuilder
         del derivBuilder
     return derivBuilders
-
-def applySinusoidalFunction(coeffs: np.ndarray, x: np.float64):
-    """
-    Sinusoidal functions are stored as 2d np arrays 
-    with each term containing 4 floats: [a, b, c, d]
-    representing asin(b(x-c)) + d
-    """
-    result = np.float64(0.0)
-    for coeff in coeffs:
-        a, b, c, d = coeff[0], coeff[1], coeff[2], coeff[3]
-        result += a * np.sin(b * (x - c)) + d
-    return result
-    
 
 def constructSinusoidalDerivBuilders() -> np.ndarray:
     """
@@ -147,23 +197,6 @@ def constructSinusoidalDerivBuilders() -> np.ndarray:
         
     return derivBuilders
 
-
-
-def applyExponentialFunction(coeffs: np.ndarray, x: np.float64) -> np.float64:
-    """
-    Exponential functions are stored as 2d np array
-    with each term containing 3 floats: [a, b, c]
-    representing ae^(bx)+c.
-    Really, there should just be one constant term but it would be more work to represent.
-
-    I originally had a horizantal shift factor but it can be represented in the vertical stretch
-    """
-    result = np.float64(0.0)
-    for coeff in coeffs:
-        a, b, c = coeff[0], coeff[1], coeff[2]
-        result += a * np.exp(b*x) + c
-    return result
-
 def constructExponentialTermDerivBuilders() -> np.ndarray:
     """
     coeff at i has 3 floats: [a, b, c]
@@ -208,19 +241,6 @@ def constructExponentialTermDerivBuilders() -> np.ndarray:
     derivBuilders[2] = derivBuilder3
 
     return derivBuilders
-
-def applyLogarithmicFunction(coeffs: np.ndarray, x: np.float64) -> np.float64:
-    """
-    Exponential functions are stored as 2d np array
-    with each term containing 3 floats: [a, b, c]
-    representing aln(x-b)+c.
-    Really, there should just be one constant term but it would be more work to represent.
-    """
-    result = np.float64(0.0)
-    for coeff in coeffs:
-        a, b, c = coeff[0], coeff[1], coeff[2]
-        result += a * np.log(x-b) + c
-    return result
 
 def constructLogarithmicDerivBuilders():
     return

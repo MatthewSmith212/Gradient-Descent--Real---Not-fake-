@@ -13,17 +13,18 @@ so store the symbolics for quick access
 """
 
 DERIV_TUPLES = dict()
-FUNC_TUPLES = dict()
+BASE_FUNCS = dict()
 
 DERIV_TUPLES["Polynomial"] = (
-    lambda x, i:x**i
+    lambda x, i:x**i,
+    None, #i should not change
 )
 
 DERIV_TUPLES["Sinusoidal"] = (
     lambda x, a, b, c, d: np.sin(b * (x - c)), #partial derivative with respect to a is just f(x)/a
     lambda x, a, b, c, d: a * (np.cos(b * (x-c)) * (x-c)), #d/db
     lambda x, a, b, c, d: a * (np.cos(b * (x-c)) * (-b)), #d/dc
-    lambda x, a, b, c, d: np.ones_like(x, dtype=np.float64) #d/dd
+    lambda x, a, b, c, d: np.ones_like(x, dtype=np.float64), #d/dd
 )
 
 DERIV_TUPLES["Exponential"] = (
@@ -38,38 +39,67 @@ DERIV_TUPLES["Logarithmic"] = (
     lambda x, a, b, c: np.ones_like(x, dtype=np.float64),
 )
 
-FUNC_TUPLES["Polynomial"] = (
+BASE_FUNCS["Polynomial"] = (
     lambda x, a, i: a * (x ** i)
+)
+
+BASE_FUNCS["Sinusoidal"] = (
+    lambda x, a, b, c, d: a * np.sin(b * (x - c)) + d
+)
+
+BASE_FUNCS["Exponential"] = (
+    lambda x, a, b, c: a * np.exp(b*x) + c
+)
+
+BASE_FUNCS["Logarithmic"] = (
+    lambda x, a, b, c: a * np.log(x-b) + c
 )
 
 def constructDeriv(termCoeffs: np.ndarray, term:int, type: str) -> NUMERICAL_DERIVATIVE_SHAPE:
     """
+    
+
+    Returns 
+    """
+    partial = DERIV_TUPLES[type][term]
+    return lambda x: partial(x, *termCoeffs)
+
+def constructDerivs(coeffs: np.ndarray, type:str) -> np.ndarray:
+    """
+    Cleaner to do all the array work here
+
     Need the partial derivative with respect to each parameter but, 
     in a given term, the gradient depends on the other weights
     so it needs to be recalculated in each pass.
-
-    Returns a function which will calculate the partial derivative with respect to a parameter at an x-value
     """
-    
-    partial = DERIV_TUPLES[type][term]
-    return lambda x: partial(x, *termCoeffs)
+    derivs = np.empty_like(coeffs, dtype=object)
+    for i in range(len(coeffs)):
+        termCoeffs = coeffs[i]
+        for j in range(len(termCoeffs)):
+            partial = DERIV_TUPLES[type][j]
+            #A function which will calculate the partial derivative with respect to a parameter at an x-value
+            derivs[i][j] = lambda x: partial(x, *termCoeffs)
+
+    return derivs
 
 def applyFunction(coeffs: np.ndarray, type: str, x: np.ndarray) -> np.ndarray:
     """
     Apply a function (described by its coefficients) to an array of values x.
     This broadcasts across the x-values but still iterates through the coefficients
-    using a slow python for-loop.
+    using a slow python for-loop. 
+    Gotta git gud at numpy to fix that. I think there's 3d matrices involved.
+
 
     For consistency, polynomial functions need to have indices as parameters.
     I will, however, freeze these because the optimization is more sensible
     if only the coefficients move.
     """
-    termFunc = FUNC_TUPLES[type]
+    termFunc = BASE_FUNCS[type]
     result = np.zeros_like(x)
     for coeff in coeffs:
         #not as fast as it could be, because the for loop runs in python
         #However, each term gets broacast over the array (I think).
-        result += termFunc(x, *coeff)
+        result += termFunc(x, *coeff) #pass the i for compatability with polynomial functions
     return result
 
 #region functions

@@ -57,16 +57,14 @@ BASE_FUNCS["Logarithmic"] = (
 
 def constructDeriv(termCoeffs: np.ndarray, term:int, type: str) -> NUMERICAL_DERIVATIVE_SHAPE:
     """
-    
-
-    Returns 
+    A function which will calculate the partial derivative with respect to a parameter at an x-value
     """
     partial = DERIV_TUPLES[type][term]
     return lambda x: partial(x, *termCoeffs)
 
 def constructDerivs(coeffs: np.ndarray, type:str) -> np.ndarray:
     """
-    Cleaner to do all the array work here
+    Cleaner to do all the array work in this file
 
     Need the partial derivative with respect to each parameter but, 
     in a given term, the gradient depends on the other weights
@@ -76,9 +74,7 @@ def constructDerivs(coeffs: np.ndarray, type:str) -> np.ndarray:
     for i in range(len(coeffs)):
         termCoeffs = coeffs[i]
         for j in range(len(termCoeffs)):
-            partial = DERIV_TUPLES[type][j]
-            #A function which will calculate the partial derivative with respect to a parameter at an x-value
-            derivs[i][j] = lambda x: partial(x, *termCoeffs)
+            derivs[i][j] = constructDeriv(termCoeffs, j, type)
 
     return derivs
 
@@ -101,6 +97,17 @@ def applyFunction(coeffs: np.ndarray, type: str, x: np.ndarray) -> np.ndarray:
         #However, each term gets broacast over the array (I think).
         result += termFunc(x, *coeff) #pass the i for compatability with polynomial functions
     return result
+
+def constructInvarianceArray(coeffs: np.ndarray, type: str) -> np.ndarray:
+    """
+    Parameters with "None" for their partial derivative function 
+    should not be adjusted during gradient descent
+    
+    This returns an array reflecting the invariant parameters 
+    """
+    
+    invariants = np.array([DERIV_TUPLES[type]]) == None
+    return np.repeat(invariants, len(coeffs), 0)
 
 #region functions
 

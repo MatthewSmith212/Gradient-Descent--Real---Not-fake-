@@ -12,102 +12,124 @@ Symbolic derivatives never change, just the coefficients
 so store the symbolics for quick access
 """
 
+FUNC_NUM_PARAMETERS = dict()
 DERIV_TUPLES = dict()
 BASE_FUNCS = dict()
 
-DERIV_TUPLES["Polynomial"] = (
-    lambda x, i:x**i,
-    None, #i should not change
-)
-
-DERIV_TUPLES["Sinusoidal"] = (
-    lambda x, a, b, c, d: np.sin(b * (x - c)), #partial derivative with respect to a is just f(x)/a
-    lambda x, a, b, c, d: a * (np.cos(b * (x-c)) * (x-c)), #d/db
-    lambda x, a, b, c, d: a * (np.cos(b * (x-c)) * (-b)), #d/dc
-    lambda x, a, b, c, d: np.ones_like(x, dtype=np.float64), #d/dd
-)
-
-DERIV_TUPLES["Exponential"] = (
-    lambda x, a, b, c: np.exp(b*x),
-    lambda x, a, b, c: a * (np.exp(b * x) * x),
-    lambda x, a, b, c: np.ones_like(x, dtype=np.float64),
-)
-
-DERIV_TUPLES["Logarithmic"] = (
-    lambda x, a, b, c: np.log(x-b),
-    lambda x, a, b, c: a * (np.log(x-b) * -1),
-    lambda x, a, b, c: np.ones_like(x, dtype=np.float64),
-)
-
-BASE_FUNCS["Polynomial"] = (
-    lambda x, a, i: a * (x ** i)
-)
-
-BASE_FUNCS["Sinusoidal"] = (
-    lambda x, a, b, c, d: a * np.sin(b * (x - c)) + d
-)
-
-BASE_FUNCS["Exponential"] = (
-    lambda x, a, b, c: a * np.exp(b*x) + c
-)
-
-BASE_FUNCS["Logarithmic"] = (
-    lambda x, a, b, c: a * np.log(x-b) + c
-)
-
-def constructDeriv(termCoeffs: np.ndarray, term:int, type: str) -> NUMERICAL_DERIVATIVE_SHAPE:
+class FunctionData:
     """
-    A function which will calculate the partial derivative with respect to a parameter at an x-value
+    The dictionaries were getting disorganized
+    So here's a class to handle the functions
     """
-    partial = DERIV_TUPLES[type][term]
-    return lambda x: partial(x, *termCoeffs)
+    def __init__(self, funcNumParameters, baseFunc, coeffDerivs):
+        #number of parameters per term
+        self.funcNumParameters = funcNumParameters 
 
-def constructDerivs(coeffs: np.ndarray, type:str) -> np.ndarray:
-    """
-    Cleaner to do all the array work in this file
+        #Calling function for a term
+        self.baseFunc = baseFunc
 
-    Need the partial derivative with respect to each parameter but, 
-    in a given term, the gradient depends on the other weights
-    so it needs to be recalculated in each pass.
-    """
-    derivs = np.empty_like(coeffs, dtype=object)
-    for i in range(len(coeffs)):
-        termCoeffs = coeffs[i]
-        for j in range(len(termCoeffs)):
-            derivs[i][j] = constructDeriv(termCoeffs, j, type)
+        #Partial derivatives with respect to each term
+        self.coeffDerivs = np.array(coeffDerivs) #more useful data type
 
-    return derivs
+    def getNumParameters(self) -> int:
+        return self.funcNumParameters
 
-def applyFunction(coeffs: np.ndarray, type: str, x: np.ndarray) -> np.ndarray:
-    """
-    Apply a function (described by its coefficients) to an array of values x.
-    This broadcasts across the x-values but still iterates through the coefficients
-    using a slow python for-loop. 
-    Gotta git gud at numpy to fix that. I think there's 3d matrices involved.
-
-
-    For consistency, polynomial functions need to have indices as parameters.
-    I will, however, freeze these because the optimization is more sensible
-    if only the coefficients move.
-    """
-    termFunc = BASE_FUNCS[type]
-    result = np.zeros_like(x)
-    for coeff in coeffs:
-        #not as fast as it could be, because the for loop runs in python
-        #However, each term gets broacast over the array (I think).
-        result += termFunc(x, *coeff) #pass the i for compatability with polynomial functions
-    return result
-
-def constructInvarianceArray(coeffs: np.ndarray, type: str) -> np.ndarray:
-    """
-    Parameters with "None" for their partial derivative function 
-    should not be adjusted during gradient descent
+    def constructDeriv(self, termCoeffs:np.ndarray, term:int) -> NUMERICAL_DERIVATIVE_SHAPE:
+        """
+        A function to calculate the partial derivative with respect to a parameter at an x-value
+        """
+        partial = self.coeffDerivs[term]
+        return lambda x: partial(x, *termCoeffs)
     
-    This returns an array reflecting the invariant parameters 
-    """
+    def constructDerivs(self, coeffs: np.ndarray) -> np.ndarray:
+        """
+        Cleaner to do all the array work in this file
     
-    invariants = np.array([DERIV_TUPLES[type]]) == None
-    return np.repeat(invariants, len(coeffs), 0)
+        Need the partial derivative with respect to each parameter but, 
+        in a given term, the gradient depends on the other weights
+        so it needs to be recalculated in each pass.
+        """
+        derivs = np.empty_like(coeffs, dtype=object)
+        for i in range(len(coeffs)):
+            termCoeffs = coeffs[i]
+            for j in range(self.funcNumParameters):
+                derivs[i][j] = self.constructDeriv(termCoeffs, j)
+        
+        return derivs
+    
+    def applyFunction(self, coeffs: np.ndarray, type: str, x: np.ndarray) -> np.ndarray:
+        """
+        Apply a function (described by its coefficients) to an array of values x.
+        This broadcasts across the x-values but still iterates through the coefficients
+        using a slow python for-loop. 
+        Gotta git gud at numpy to fix that. I think there's 3d matrices involved.
+    
+        For consistency, polynomial functions need to have indices as parameters.
+        I will, however, freeze these because the optimization is more sensible
+        if only the coefficients move.
+        """
+        result = np.zeros_like(x)
+        for coeff in coeffs:
+            #not as fast as it could be, because the for loop runs in python
+            #However, each term gets broacast over the array (I think).
+            result += self.baseFunc(x, *coeff) #pass the i for compatability with polynomial functions
+        return result
+
+    def constructInvarianceArray(self, coeffs: np.ndarray) -> np.ndarray:
+        """
+        Parameters with "None" for their partial derivative function 
+        should not be adjusted during gradient descent
+        
+        This returns an array reflecting the invariant parameters 
+        """
+        
+        invariants = np.array([self.coeffDerivs]) == None
+        return np.repeat(invariants, len(coeffs), 0)
+        
+
+FUNCTIONS = dict()[FunctionData]
+
+FUNCTIONS["Polynomial"] = FunctionData(
+    funcNumParameters=2,
+    baseFunc= lambda x, a, i: a * (x ** i),
+    coeffDerivs=(
+        lambda x, i:x**i,
+        None, #i should not change
+    )
+)
+
+FUNCTIONS["Sinusoidal"] = FunctionData(
+    funcNumParameters= 4,
+    baseFunc= lambda x, a, b, c, d: a * np.sin(b * (x - c)) + d,
+    coeffDerivs=(
+        lambda x, a, b, c, d: np.sin(b * (x - c)), #partial derivative with respect to a is just f(x)/a
+        lambda x, a, b, c, d: a * (np.cos(b * (x-c)) * (x-c)), #d/db
+        lambda x, a, b, c, d: a * (np.cos(b * (x-c)) * (-b)), #d/dc
+        lambda x, a, b, c, d: np.ones_like(x, dtype=np.float64), #d/dd
+    )
+)
+
+FUNCTIONS["Exponential"] = FunctionData(
+    funcNumParameters= 3,
+    baseFunc= lambda x, a, b, c: a * np.exp(b*x) + c,
+    coeffDerivs=(
+        lambda x, a, b, c: np.exp(b*x),
+        lambda x, a, b, c: a * (np.exp(b * x) * x),
+        lambda x, a, b, c: np.ones_like(x, dtype=np.float64),
+    )
+)
+
+FUNCTIONS["Sinusoidal"] = FunctionData(
+    funcNumParameters= 3,
+    baseFunc= lambda x, a, b, c: a * np.log(x-b) + c,
+    coeffDerivs=(
+        lambda x, a, b, c: np.log(x-b),
+        lambda x, a, b, c: a * (np.log(x-b) * -1),
+        lambda x, a, b, c: np.ones_like(x, dtype=np.float64),
+    )
+)      
+
+
 
 #region functions
 

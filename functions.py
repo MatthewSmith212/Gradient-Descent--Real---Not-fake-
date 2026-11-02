@@ -12,16 +12,12 @@ Symbolic derivatives never change, just the coefficients
 so store the symbolics for quick access
 """
 
-FUNC_NUM_PARAMETERS = dict()
-DERIV_TUPLES = dict()
-BASE_FUNCS = dict()
-
 class FunctionData:
     """
     The dictionaries were getting disorganized
     So here's a class to handle the functions
     """
-    def __init__(self, funcNumParameters, baseFunc, coeffDerivs):
+    def __init__(self, funcType, funcNumParameters, baseFunc, coeffDerivs):
         #number of parameters per term
         self.funcNumParameters = funcNumParameters 
 
@@ -31,8 +27,16 @@ class FunctionData:
         #Partial derivatives with respect to each term
         self.coeffDerivs = np.array(coeffDerivs) #more useful data type
 
+        #Name of function's type. Convenient to have this accesible from just the object
+        self.funcType = funcType
+
     def getNumParameters(self) -> int:
+        #setters and getters
         return self.funcNumParameters
+
+    def getFuncType(self) -> str:
+        #getter, for security
+        return self.funcType
 
     def constructDeriv(self, termCoeffs:np.ndarray, term:int) -> NUMERICAL_DERIVATIVE_SHAPE:
         """
@@ -57,7 +61,7 @@ class FunctionData:
         
         return derivs
     
-    def applyFunction(self, coeffs: np.ndarray, type: str, x: np.ndarray) -> np.ndarray:
+    def applyFunction(self, coeffs: np.ndarray, x: np.ndarray) -> np.ndarray:
         """
         Apply a function (described by its coefficients) to an array of values x.
         This broadcasts across the x-values but still iterates through the coefficients
@@ -84,12 +88,18 @@ class FunctionData:
         """
         
         invariants = np.array([self.coeffDerivs]) == None
-        return np.repeat(invariants, len(coeffs), 0)
-        
 
-FUNCTIONS = dict()[FunctionData]
+        #calculate the number of variant parameters to expect
+        self.numVariantParameters = self.funcNumParameters - np.sum(invariants))
+        
+        return np.repeat(invariants, len(coeffs), 0)
+
+
+#Still useful to have the functions keyed
+FUNCTIONS: dict[str, FunctionData] = dict()
 
 FUNCTIONS["Polynomial"] = FunctionData(
+    funcType="Polynomial",
     funcNumParameters=2,
     baseFunc= lambda x, a, i: a * (x ** i),
     coeffDerivs=(
@@ -99,6 +109,7 @@ FUNCTIONS["Polynomial"] = FunctionData(
 )
 
 FUNCTIONS["Sinusoidal"] = FunctionData(
+    funcType="Sinusoidal",
     funcNumParameters= 4,
     baseFunc= lambda x, a, b, c, d: a * np.sin(b * (x - c)) + d,
     coeffDerivs=(
@@ -110,6 +121,7 @@ FUNCTIONS["Sinusoidal"] = FunctionData(
 )
 
 FUNCTIONS["Exponential"] = FunctionData(
+    funcType="Exponential",
     funcNumParameters= 3,
     baseFunc= lambda x, a, b, c: a * np.exp(b*x) + c,
     coeffDerivs=(
@@ -119,7 +131,8 @@ FUNCTIONS["Exponential"] = FunctionData(
     )
 )
 
-FUNCTIONS["Sinusoidal"] = FunctionData(
+FUNCTIONS["Logarithmic"] = FunctionData(
+    funcType="Logarithmic",
     funcNumParameters= 3,
     baseFunc= lambda x, a, b, c: a * np.log(x-b) + c,
     coeffDerivs=(
@@ -127,188 +140,4 @@ FUNCTIONS["Sinusoidal"] = FunctionData(
         lambda x, a, b, c: a * (np.log(x-b) * -1),
         lambda x, a, b, c: np.ones_like(x, dtype=np.float64),
     )
-)      
-
-
-
-#region functions
-
-def applyPolynomialFunction(coeffs: np.ndarray, x: np.ndarray):
-    #Polynomial functions are stored as nparrays with coeff[i] being the coefficient of x^i
-    result = np.float64(0.0)
-    for i in range(len(coeffs)):
-        result += coeffs[i] * (x ** i)
-    return result
-
-
-def applySinusoidalFunction(coeffs: np.ndarray, x: np.float64):
-    """
-    Sinusoidal functions are stored as 2d np arrays 
-    with each term containing 4 floats: [a, b, c, d]
-    representing asin(b(x-c)) + d
-    """
-    result = np.float64(0.0)
-    for coeff in coeffs:
-        a, b, c, d = coeff[0], coeff[1], coeff[2], coeff[3]
-        result += a * np.sin(b * (x - c)) + d
-    return result
-
-
-def applyExponentialFunction(coeffs: np.ndarray, x: np.float64) -> np.float64:
-    """
-    Exponential functions are stored as 2d np array
-    with each term containing 3 floats: [a, b, c]
-    representing ae^(bx)+c.
-    Really, there should just be one constant term but it would be more work to represent.
-
-    I originally had a horizantal shift factor but it can be represented in the vertical stretch
-    """
-    result = np.float64(0.0)
-    for coeff in coeffs:
-        a, b, c = coeff[0], coeff[1], coeff[2]
-        result += a * np.exp(b*x) + c
-    return result
-
-
-
-def applyLogarithmicFunction(coeffs: np.ndarray, x: np.float64) -> np.float64:
-    """
-    Exponential functions are stored as 2d np array
-    with each term containing 3 floats: [a, b, c]
-    representing aln(x-b)+c.
-    Really, there should just be one constant term but it would be more work to represent.
-    """
-    result = np.float64(0.0)
-    for coeff in coeffs:
-        a, b, c = coeff[0], coeff[1], coeff[2]
-        result += a * np.log(x-b) + c
-    return result
-
-
-#region deprecated
-
-def constructPolynomialDerivBuilders(coeffs: np.ndarray) -> np.ndarray:
-    """
-    Partial derivative of sum over k of wkx^k
-    with respect to wi
-    is just x^i.
-    This reutrns a list such that
-    list[i] is the partial derivative with respect to wi.
-    Because the derivative does not change
-    When wi changes.
-    Because it's just x^i.
-    """
-    derivBuilders = np.empty(shape=len(coeffs), dtype=object)
-    for i in range(len(coeffs)):
-        def derivBuilder() -> Callable[[np.float64], np.float64]:
-            #just necessary for formatting consistency
-            def deriv(x: np.float64) -> np.float64:
-                return x ** i
-            #Finally, vector functions
-            return np.vectorize(DERIV_TUPLES["Polynomial"][0])
-        derivBuilders[i] = derivBuilder
-        del derivBuilder
-    return derivBuilders
-
-def constructSinusoidalDerivBuilders() -> np.ndarray:
-    """
-    coeff at i has 4 floats: [a, b, c, d]
-    representing asin(b(x-c))+d.
-
-    Need the partial derivative with respect to each parameter but, 
-    in a given term, the gradient depends on the other weights
-    so it needs to be recalculated in each pass
-
-    Returns a 1d Array of shape (4,) to calculate a term's gradients
-    with each term being a function which takes the coefficients as its only argument
-    and returns a fast vector function to calculate the partial deriv for the weight's gradient
-    to run before each recalculation of the gradients
-    """
-    derivBuilders = np.empty(shape=(4), dtype=object)
-        #iterate over all the sinusoidal terms, and make a list of partial derivatives with respect to each parameter of each term
-       
-    def derivBuilder1(termCoeffs : np.ndarray) ->  Callable[[np.float64], np.float64]: # pyright: ignore[reportRedeclaration]
-        #partial derivative with respect to a is just f(x)/a
-        #vector functions cant read out of arrays so lets define the function with them. They only change once per pass, so less depends on the efficiency with which we access these.
-        a, b, c, d = termCoeffs[0], termCoeffs[1], termCoeffs[2], termCoeffs[3]
-        def deriv(x: np.float64):
-            return np.sin(b * (x - c))
-        #Return a fast vector function
-        return np.vectorize(deriv)
-    derivBuilders[0] = derivBuilder1
-
-    def derivBuilder2(termCoeffs: np.ndarray) -> Callable[[np.float64], np.float64]: # pyright: ignore[reportRedeclaration]
-        a, b, c, d = termCoeffs[0], termCoeffs[1], termCoeffs[2], termCoeffs[3]
-        def deriv(x: np.float64):
-            #partial derivative with respect to b
-            return a * (np.cos(b * (x-c)) * (x-c))
-        #Return a fast vector function
-        return np.vectorize(deriv)
-    derivBuilders[1] = derivBuilder2
-
-    def derivBuilder3(termCoeffs: np.ndarray) -> Callable[[np.float64], np.float64]: # pyright: ignore[reportRedeclaration]
-        a, b, c, d = termCoeffs[0], termCoeffs[1], termCoeffs[2], termCoeffs[3]
-        def deriv(x: np.float64):
-            #Partial derivative with respect to c (most difficult)
-            return a * (np.cos(b * (x-c)) * (-b))
-        #Return a fast vector function
-        return np.vectorize(deriv)
-    derivBuilders[2] = derivBuilder3
-
-    def derivBuilder4(termCoeffs: np.ndarray) -> Callable[[np.float64], np.float64]:
-        #Really just for consistency of formatting
-        def deriv(x: np.float64):
-            #partial derivative with respect to d is just 1
-            return np.float64(1)
-        return np.vectorize(deriv)
-    derivBuilders[3] = derivBuilder4
-        
-    return derivBuilders
-
-def constructExponentialTermDerivBuilders() -> np.ndarray:
-    """
-    coeff at i has 3 floats: [a, b, c]
-    representing ae^(bx)+c.
-
-    Need the partial derivative with respect to each parameter but, 
-    in a given term, the gradient depends on the other weights
-    so it needs to be recalculated in each pass
-
-    Returns a 1d Array of shape (3,) to calculate a term's gradients
-    with each term being a function which takes the coefficients as its only argument
-    and returns a fast vector function to calculate the partial deriv for the weight's gradient
-    to run before each recalculation of the gradients
-    """
-    derivBuilders = np.empty(shape=(3), dtype=object)
-    #iterate over all the exponential terms, and make a list of partial derivatives with respect to each parameter of each term
-    def derivBuilder1(termCoeffs : np.ndarray) ->  Callable[[np.float64], np.float64]: # pyright: ignore[reportRedeclaration]
-        #partial derivative with respect to a is just f(x)/a
-        #vector functions cant read out of arrays so lets define the function with them. They only change once per pass, so less depends on the efficiency with which we access these.
-        a, b, c = termCoeffs[0], termCoeffs[1], termCoeffs[2]
-        def deriv(x: np.float64):
-            return np.exp(b*x)
-        #Return a fast vector function
-        return np.vectorize(deriv)
-    derivBuilders[0] = derivBuilder1
-    
-    def derivBuilder2(termCoeffs: np.ndarray) -> Callable[[np.float64], np.float64]: # pyright: ignore[reportRedeclaration]
-        a, b, c = termCoeffs[0], termCoeffs[1], termCoeffs[2]
-        def deriv(x: np.float64):
-            #partial derivative with respect to b, by chain rule
-            return a * (np.exp(b * x) * x)
-        #Return a fast vector function
-        return np.vectorize(deriv)
-    derivBuilders[1] = derivBuilder2
-
-    def derivBuilder3(termCoeffs: np.ndarray) -> Callable[[np.float64], np.float64]:
-        #Really just for consistency of formatting
-        def deriv(x: np.float64):
-            #partial derivative with respect to c is just 1
-            return np.float64(1)
-        return np.vectorize(deriv)
-    derivBuilders[2] = derivBuilder3
-
-    return derivBuilders
-
-def constructLogarithmicDerivBuilders():
-    return
+)

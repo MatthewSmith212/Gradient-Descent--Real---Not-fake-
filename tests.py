@@ -1,20 +1,14 @@
 #I should learn how to actually use pytest
-from functions import constructDeriv, applyFunction, constructInvarianceArray
+from functions import FUNCTIONS
 import numpy as np
 
 if __name__ == "__main__":
     polynomialCoeffs = np.array([[5, 0], [3, 1], [2, 2]])
-    #value = applyFunction(polynomialCoeffs, "Polynomial", np.array([0, 1, 2, 3]))
-    #print(value) 
-    print(constructInvarianceArray(polynomialCoeffs, "Polynomial"))
-    polynomialDerivs = np.empty_like(polynomialCoeffs, dtype=object)
-    for i in range(len(polynomialCoeffs)):
-        coeffs = polynomialCoeffs[i]
-        for j in range(len(coeffs)-1):
-            polynomialDerivs[i][j] = constructDeriv(
-                termCoeffs=coeffs,
-                term=j,
-                type="Polynomial"
-            )
-    
+    PolynomialFunction = FUNCTIONS["Polynomial"]
+
+    points = np.array([0, 1, 2, 4, 6])
+    value = PolynomialFunction.applyFunction(polynomialCoeffs, points)
+    print(value)
+
+    invarianceArray = PolynomialFunction.constructInvarianceArray(polynomialCoeffs)
     

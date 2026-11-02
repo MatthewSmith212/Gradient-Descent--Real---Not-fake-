@@ -90,7 +90,7 @@ class FunctionData:
         invariants = np.array([self.coeffDerivs]) == None
 
         #calculate the number of variant parameters to expect
-        self.numVariantParameters = self.funcNumParameters - np.sum(invariants))
+        self.numVariantParameters = self.funcNumParameters - np.sum(invariants)
         
         return np.repeat(invariants, len(coeffs), 0)
 

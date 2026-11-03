@@ -6,6 +6,7 @@ To quickly calculate the loss function, the program needs a numpy vector functio
 Which takes an np.float64 (x-value) and returns an np.float64 (y-value)
 """
 NUMERICAL_DERIVATIVE_SHAPE = Callable[[np.ndarray], np.ndarray]
+RETURN_ZERO = lambda x:np.zeros_like(x, dtype=np.float64)
 
 """
 Symbolic derivatives never change, just the coefficients 
@@ -43,11 +44,17 @@ class FunctionData:
         A function to calculate the partial derivative with respect to a parameter at an x-value
         """
         partial = self.coeffDerivs[term]
-        return lambda x: partial(x, *termCoeffs)
+        if partial == None:
+            #If its invariant then we just say its derivative is 0, so its gradient'll be 0
+            #Could just do that in the function definitions but
+            #this gives us the flexibility to freeze weights in the future
+            return RETURN_ZERO
+        else:
+            return lambda x: partial(x, *termCoeffs)
     
-    def constructDerivs(self, coeffs: np.ndarray) -> np.ndarray:
+    def constructDerivs(self, coeffs: np.ndarray, invarianceArray: np.ndarray) -> np.ndarray:
         """
-        Cleaner to do all the array work in this file
+        Cleaner to do all the array work in this file.
     
         Need the partial derivative with respect to each parameter but, 
         in a given term, the gradient depends on the other weights
@@ -72,7 +79,7 @@ class FunctionData:
         I will, however, freeze these because the optimization is more sensible
         if only the coefficients move.
         """
-        result = np.zeros_like(x)
+        result = np.zeros_like(x, dtype=np.float64)
         for coeff in coeffs:
             #not as fast as it could be, because the for loop runs in python
             #However, each term gets broacast over the array (I think).
@@ -103,7 +110,7 @@ FUNCTIONS["Polynomial"] = FunctionData(
     funcNumParameters=2,
     baseFunc= lambda x, a, i: a * (x ** i),
     coeffDerivs=(
-        lambda x, i:x**i,
+        lambda x, a, i:x**i,
         None, #i should not change
     )
 )
